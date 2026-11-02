@@ -16,7 +16,9 @@
 
     <application
         android:label="Busy Light"
-        android:banner="@drawable/banner"
+        android:icon="@drawable/ic_app"
+        android:roundIcon="@drawable/ic_app"
+        android:banner="@drawable/app_banner"
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.DeviceDefault">
 
