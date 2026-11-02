@@ -91,6 +91,7 @@ class MainActivity : Activity() {
         appendLine("Light color: ${BusyState.color}")
         appendLine("Mode: ${BusyState.mode}")
         appendLine("Foreground app: ${BusyState.foregroundApp ?: "-"}")
+        appendLine("Foreground screen: ${BusyState.foregroundClass ?: "-"}")
         appendLine("Microphone in use (any app): ${BusyState.inCall}")
         appendLine("Audio playing (any app): ${BusyState.audioPlaying}")
         appendLine("USB debug: ${UsbLight.lastStatus}")

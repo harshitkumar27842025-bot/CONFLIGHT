@@ -61,6 +61,7 @@ class BusyLightService : Service() {
             BusyState.usageAccess = hasUsageAccess(this)
             val fg = if (BusyState.usageAccess) tracker.update() else null
             BusyState.foregroundApp = fg
+            BusyState.foregroundClass = if (fg != null) tracker.currentClass else null
 
             // RED when ANY app is using the microphone or playing audio (or an Office app is on screen).
             val micInUse = audio.activeRecordingConfigurations.isNotEmpty()

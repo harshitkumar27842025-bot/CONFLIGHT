@@ -10,6 +10,8 @@ class ForegroundTracker(ctx: Context) {
     private val usm = ctx.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
     private var since = System.currentTimeMillis() - 6 * 3600_000L
     private var current: String? = null
+    var currentClass: String? = null
+        private set
 
     fun update(): String? {
         val now = System.currentTimeMillis()
@@ -18,8 +20,8 @@ class ForegroundTracker(ctx: Context) {
         while (events.hasNextEvent()) {
             events.getNextEvent(e)
             when (e.eventType) {
-                UsageEvents.Event.MOVE_TO_FOREGROUND -> current = e.packageName
-                UsageEvents.Event.MOVE_TO_BACKGROUND -> if (e.packageName == current) current = null
+                UsageEvents.Event.MOVE_TO_FOREGROUND -> { current = e.packageName; currentClass = e.className }
+                UsageEvents.Event.MOVE_TO_BACKGROUND -> if (e.packageName == current) { current = null; currentClass = null }
             }
         }
         since = now - 5000   // small overlap so late-arriving events aren't missed

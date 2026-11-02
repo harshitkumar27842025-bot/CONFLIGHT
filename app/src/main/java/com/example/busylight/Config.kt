@@ -12,7 +12,10 @@ object Config {
         "com.microsoft.office.word",
         "com.microsoft.office.excel",
         "com.microsoft.office.powerpoint",
-        "com.microsoft.office.officehubrow"      // Microsoft 365 app
+        "com.microsoft.office.officehubrow",     // Microsoft 365 app
+        "cn.wps.moffice_eng",                    // WPS Office (Google Play version)
+        "cn.wps.moffice",                        // WPS Office (other builds)
+        "cn.wps.moffice_i18n"                    // WPS Office (international builds)
     )
 
     /** Light goes RED if one of these is in the foreground AND any audio is playing (songs, videos). */
@@ -40,6 +43,7 @@ object BusyState {
     @Volatile var mode = "auto"          // auto | red | green
     @Volatile var color = "none"         // what the light was last set to
     @Volatile var foregroundApp: String? = null
+    @Volatile var foregroundClass: String? = null
     @Volatile var inCall = false
     @Volatile var audioPlaying = false
     @Volatile var usbPresent = false
