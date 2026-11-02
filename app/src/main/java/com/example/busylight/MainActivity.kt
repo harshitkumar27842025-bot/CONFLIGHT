@@ -2,6 +2,7 @@ package com.example.busylight
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Build
@@ -10,16 +11,21 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import android.text.InputType
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
 class MainActivity : Activity() {
     private lateinit var status: TextView
+    private lateinit var lockBtn: Button
+    private var unlocked = false   // true after the PIN was entered, until the app is left
     private val ui = Handler(Looper.getMainLooper())
     private val refresh = object : Runnable {
         override fun run() { status.text = describe(); ui.postDelayed(this, 1000) }
@@ -44,17 +50,19 @@ class MainActivity : Activity() {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             })
         }
+        fun lockedBtn(label: String, action: () -> Unit) = btn(label) { requirePin(action) }
         btn("1. Grant Usage Access") {
             try { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
             catch (_: ActivityNotFoundException) { status.text = "No settings screen on this device. Use adb (see README)." }
         }
         btn("2. Start light service") { startForegroundService(Intent(this, BusyLightService::class.java)) }
-        btn("Stop service") { stopService(Intent(this, BusyLightService::class.java)) }
+        lockedBtn("Stop service") { stopService(Intent(this, BusyLightService::class.java)) }
         btn("Allow running in background (battery)") {
             try { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
             catch (_: Exception) { status.text = "No battery settings screen on this device." }
         }
-        btn("Learn app (15 s): press, then show the casting app") {
+        if (Config.ALLOW_LEARNING) {
+        lockedBtn("Learn app (15 s): press, then show the casting app") {
             BusyState.learnNote = "Learning... now open the casting app / start casting, and keep it on screen for 15 seconds."
             ui.postDelayed({
                 val pkg = BusyState.foregroundApp
@@ -66,17 +74,25 @@ class MainActivity : Activity() {
                 }
             }, 15_000)
         }
-        btn("Forget learned apps") {
+        lockedBtn("Forget learned apps") {
             CustomApps.clear(this@MainActivity)
             BusyState.learnNote = "Learned apps cleared."
         }
-        btn("Force RED") { BusyState.mode = "red" }
-        btn("Force GREEN") { BusyState.mode = "green" }
-        btn("Automatic") { BusyState.mode = "auto" }
+        }
+        lockedBtn("Force RED") { BusyState.mode = "red" }
+        lockedBtn("Force GREEN") { BusyState.mode = "green" }
+        lockedBtn("Automatic") { BusyState.mode = "auto" }
 
         root.addView(TextView(this).apply { text = "\nDelays (seconds, 1-30)"; textSize = 18f })
         stepper(root, "Green -> RED delay", { DelaySettings.toRedSec }) { DelaySettings.toRedSec = it }
         stepper(root, "Red -> GREEN delay", { DelaySettings.toGreenSec }) { DelaySettings.toGreenSec = it }
+
+        lockBtn = Button(this)
+        lockBtn.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        lockBtn.setOnClickListener { lockMenu() }
+        root.addView(TextView(this).apply { text = "\nSettings lock"; textSize = 18f })
+        root.addView(lockBtn)
+        refreshLockLabel()
 
         setContentView(ScrollView(this).apply { addView(root) })
     }
@@ -87,9 +103,11 @@ class MainActivity : Activity() {
         label.textSize = 18f
         fun refreshLabel() { label.text = "$title: ${get()} s" }
         fun change(delta: Int) {
-            set((get() + delta).coerceIn(DelaySettings.MIN, DelaySettings.MAX))
-            DelaySettings.save(this)
-            refreshLabel()
+            requirePin {
+                set((get() + delta).coerceIn(DelaySettings.MIN, DelaySettings.MAX))
+                DelaySettings.save(this)
+                refreshLabel()
+            }
         }
         val minus = Button(this)
         minus.text = "  -  "
@@ -105,6 +123,66 @@ class MainActivity : Activity() {
         root.addView(row)
         refreshLabel()
     }
+
+    private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
+
+    private fun refreshLockLabel() {
+        lockBtn.text = if (PinLock.isSet(this)) "Settings lock: ON (tap to change or remove PIN)"
+                       else "Settings lock: OFF (tap to set a PIN)"
+    }
+
+    private fun askPin(title: String, onOk: (String) -> Unit) {
+        val input = EditText(this)
+        input.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(input)
+            .setPositiveButton("OK") { _, _ -> onOk(input.text.toString()) }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /** Runs [action] right away if no PIN is set or it was already entered; otherwise asks for the PIN first. */
+    private fun requirePin(action: () -> Unit) {
+        if (!PinLock.isSet(this) || unlocked) { action(); return }
+        askPin("Settings are locked. Enter PIN") { pin ->
+            if (PinLock.check(this, pin)) { unlocked = true; action() }
+            else toast("Wrong PIN")
+        }
+    }
+
+    private fun lockMenu() {
+        if (!PinLock.isSet(this)) {
+            askPin("Choose a PIN (4-8 digits)") { pin ->
+                if (pin.length in 4..8) {
+                    PinLock.set(this, pin); unlocked = false
+                    toast("PIN set. Settings are now locked.")
+                } else toast("PIN must be 4-8 digits")
+                refreshLockLabel()
+            }
+        } else {
+            requirePin {
+                AlertDialog.Builder(this)
+                    .setTitle("Settings lock")
+                    .setItems(arrayOf("Change PIN", "Remove PIN")) { _, which ->
+                        if (which == 0) {
+                            askPin("New PIN (4-8 digits)") { pin ->
+                                if (pin.length in 4..8) { PinLock.set(this, pin); toast("PIN changed") }
+                                else toast("PIN must be 4-8 digits")
+                                refreshLockLabel()
+                            }
+                        } else {
+                            PinLock.clear(this); unlocked = false
+                            toast("PIN removed. Settings are unlocked.")
+                            refreshLockLabel()
+                        }
+                    }
+                    .show()
+            }
+        }
+    }
+
+    override fun onStop() { super.onStop(); unlocked = false }
 
     override fun onResume() { super.onResume(); ui.post(refresh) }
     override fun onPause() { super.onPause(); ui.removeCallbacks(refresh) }

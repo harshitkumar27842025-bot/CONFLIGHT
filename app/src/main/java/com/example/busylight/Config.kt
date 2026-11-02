@@ -8,6 +8,10 @@ object Config {
     const val POLL_MS = 500L            // how often the TV is checked
     const val RESEND_MS = 10_000L       // keep-alive re-send of the same color
 
+    /** Set to false (and rebuild) to remove the "Learn app" / "Forget learned apps" buttons entirely.
+     *  Apps that were already learned keep working. */
+    const val ALLOW_LEARNING = true
+
     /** Light goes RED whenever one of these is in the foreground. */
     val OFFICE_PACKAGES = setOf(
         "com.microsoft.office.word",
@@ -124,4 +128,21 @@ object CustomApps {
         packages = emptySet()
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("customRed").apply()
     }
+}
+
+
+/** Optional PIN that locks the settings buttons. A simple lock against casual changes, not strong security. */
+object PinLock {
+    private const val PREFS = "busylight_settings"
+    private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    private fun hash(pin: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest("busylight:$pin".toByteArray())
+            .joinToString("") { "%02x".format(it) }
+
+    fun isSet(ctx: Context) = prefs(ctx).contains("pinHash")
+    fun set(ctx: Context, pin: String) { prefs(ctx).edit().putString("pinHash", hash(pin)).apply() }
+    fun clear(ctx: Context) { prefs(ctx).edit().remove("pinHash").apply() }
+    fun check(ctx: Context, pin: String) = prefs(ctx).getString("pinHash", null) == hash(pin)
 }
