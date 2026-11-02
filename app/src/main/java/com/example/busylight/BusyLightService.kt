@@ -25,7 +25,7 @@ class BusyLightService : Service() {
     private lateinit var audio: AudioManager
 
     private var current: String? = null     // color actually sent to the light
-    private var streak = 0                  // consecutive polls disagreeing with `current`
+    private var pendingSince = 0L           // when the wanted color first differed from `current` (0 = no change pending)
     private var lastSend = 0L
 
     override fun onBind(i: Intent?): IBinder? = null
@@ -49,7 +49,7 @@ class BusyLightService : Service() {
             audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             api = HttpApi(Config.API_PORT).also { it.start() }
             exec = Executors.newSingleThreadScheduledExecutor().also {
-                it.scheduleWithFixedDelay({ poll() }, 0, Config.POLL_SECONDS, TimeUnit.SECONDS)
+                it.scheduleWithFixedDelay({ poll() }, 0, Config.POLL_MS, TimeUnit.MILLISECONDS)
             }
         }
         return START_STICKY
@@ -57,18 +57,22 @@ class BusyLightService : Service() {
 
     private fun poll() {
         try {
+            val now = SystemClock.elapsedRealtime()
             BusyState.usbPresent = light.present
             BusyState.usageAccess = hasUsageAccess(this)
             val fg = if (BusyState.usageAccess) tracker.update() else null
             BusyState.foregroundApp = fg
             BusyState.foregroundClass = if (fg != null) tracker.currentClass else null
 
-            // RED when ANY app is using the microphone or playing audio (or an Office app is on screen).
+            // RED when ANY app uses the microphone or plays audio, an Office app is on screen, or the TV is being cast to.
             val micInUse = audio.activeRecordingConfigurations.isNotEmpty()
             BusyState.inCall = micInUse
             val playing = audio.isMusicActive
             BusyState.audioPlaying = playing
-            val busy = (fg != null && fg in Config.OFFICE_PACKAGES) || micInUse || playing
+            val casting = fg != null && fg in Config.CAST_PACKAGES
+            BusyState.casting = casting
+            val busy = (fg != null && fg in Config.OFFICE_PACKAGES) || micInUse || playing || casting
+            if (busy != BusyState.rawBusy) { BusyState.rawBusy = busy; BusyState.rawSince = now }
 
             val wanted = when (BusyState.mode) {
                 "red" -> "red"
@@ -76,21 +80,20 @@ class BusyLightService : Service() {
                 else -> if (busy) "red" else "green"
             }
 
-            // Debounce: only switch after the new state has been stable for a few polls.
+            // Debounce by TIME: switch only after the new state has lasted the chosen number of seconds.
             val target = when {
-                current == null || BusyState.mode != "auto" -> wanted
-                wanted == current -> { streak = 0; wanted }
+                current == null || BusyState.mode != "auto" -> { pendingSince = 0L; wanted }
+                wanted == current -> { pendingSince = 0L; wanted }
                 else -> {
-                    streak++
-                    val need = if (wanted == "red") DelaySettings.toRedSec else DelaySettings.toGreenSec
-                    if (streak >= need) wanted else current!!
+                    if (pendingSince == 0L) pendingSince = now
+                    val needMs = (if (wanted == "red") DelaySettings.toRedSec else DelaySettings.toGreenSec) * 1000L
+                    if (now - pendingSince >= needMs) wanted else current!!
                 }
             }
 
-            val now = SystemClock.elapsedRealtime()
             if (target != current || !light.isOpen || now - lastSend >= Config.RESEND_MS) {
                 val ok = if (target == "red") light.set(255, 0, 0) else light.set(0, 255, 0)
-                if (ok) { current = target; lastSend = now; streak = 0 }
+                if (ok) { current = target; lastSend = now; pendingSince = 0L }
             }
             BusyState.color = current ?: "none"
         } catch (e: Exception) {

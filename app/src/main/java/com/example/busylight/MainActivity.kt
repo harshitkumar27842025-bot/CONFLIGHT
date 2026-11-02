@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.Button
@@ -30,6 +31,8 @@ class MainActivity : Activity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
 
         DelaySettings.load(this)
+        // Opening the app (or plugging in the light, which opens it) also starts the service.
+        try { startForegroundService(Intent(this, BusyLightService::class.java)) } catch (_: Exception) { }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(48, 48, 48, 48) }
         status = TextView(this).apply { textSize = 18f }
         root.addView(status)
@@ -46,6 +49,10 @@ class MainActivity : Activity() {
         }
         btn("2. Start light service") { startForegroundService(Intent(this, BusyLightService::class.java)) }
         btn("Stop service") { stopService(Intent(this, BusyLightService::class.java)) }
+        btn("Allow running in background (battery)") {
+            try { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+            catch (_: Exception) { status.text = "No battery settings screen on this device." }
+        }
         btn("Force RED") { BusyState.mode = "red" }
         btn("Force GREEN") { BusyState.mode = "green" }
         btn("Automatic") { BusyState.mode = "auto" }
@@ -94,6 +101,9 @@ class MainActivity : Activity() {
         appendLine("Foreground screen: ${BusyState.foregroundClass ?: "-"}")
         appendLine("Microphone in use (any app): ${BusyState.inCall}")
         appendLine("Audio playing (any app): ${BusyState.audioPlaying}")
+        appendLine("Casting to this TV: ${BusyState.casting}")
+        appendLine("Busy signal: ${if (BusyState.rawBusy) "ON" else "OFF"} for ${(SystemClock.elapsedRealtime() - BusyState.rawSince) / 1000} s")
+        appendLine("Last automatic start: ${BootInfo.last(this@MainActivity)}")
         appendLine("USB debug: ${UsbLight.lastStatus}")
         append("API: http://${localIp()}:${Config.API_PORT}/status")
     }
