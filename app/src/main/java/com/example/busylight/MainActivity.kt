@@ -31,6 +31,7 @@ class MainActivity : Activity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
 
         DelaySettings.load(this)
+        CustomApps.load(this)
         // Opening the app (or plugging in the light, which opens it) also starts the service.
         try { startForegroundService(Intent(this, BusyLightService::class.java)) } catch (_: Exception) { }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(48, 48, 48, 48) }
@@ -52,6 +53,22 @@ class MainActivity : Activity() {
         btn("Allow running in background (battery)") {
             try { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
             catch (_: Exception) { status.text = "No battery settings screen on this device." }
+        }
+        btn("Learn app (15 s): press, then show the casting app") {
+            BusyState.learnNote = "Learning... now open the casting app / start casting, and keep it on screen for 15 seconds."
+            ui.postDelayed({
+                val pkg = BusyState.foregroundApp
+                if (pkg != null && pkg != packageName) {
+                    CustomApps.add(this@MainActivity, pkg)
+                    BusyState.learnNote = "Learned: $pkg"
+                } else {
+                    BusyState.learnNote = "Nothing learned (Busy Light itself was on screen, or Usage Access is off). Try again."
+                }
+            }, 15_000)
+        }
+        btn("Forget learned apps") {
+            CustomApps.clear(this@MainActivity)
+            BusyState.learnNote = "Learned apps cleared."
         }
         btn("Force RED") { BusyState.mode = "red" }
         btn("Force GREEN") { BusyState.mode = "green" }
@@ -102,6 +119,8 @@ class MainActivity : Activity() {
         appendLine("Microphone in use (any app): ${BusyState.inCall}")
         appendLine("Audio playing (any app): ${BusyState.audioPlaying}")
         appendLine("Casting to this TV: ${BusyState.casting}")
+        appendLine("Learned apps: ${if (CustomApps.packages.isEmpty()) "none" else CustomApps.packages.joinToString()}")
+        if (BusyState.learnNote.isNotEmpty()) appendLine(BusyState.learnNote)
         appendLine("Busy signal: ${if (BusyState.rawBusy) "ON" else "OFF"} for ${(SystemClock.elapsedRealtime() - BusyState.rawSince) / 1000} s")
         appendLine("Last automatic start: ${BootInfo.last(this@MainActivity)}")
         appendLine("USB debug: ${UsbLight.lastStatus}")

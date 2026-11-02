@@ -54,6 +54,7 @@ object BusyState {
     @Volatile var inCall = false
     @Volatile var audioPlaying = false
     @Volatile var casting = false
+    @Volatile var learnNote = ""
     @Volatile var usbPresent = false
     @Volatile var usageAccess = false
     @Volatile var rawBusy = false                       // instant signal, before the delay is applied
@@ -100,4 +101,27 @@ object BootInfo {
     fun last(ctx: Context): String =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("lastAuto", null)
             ?: "never (no automatic start seen yet)"
+}
+
+
+/** Apps the user taught the app with the "Learn app" button: RED whenever one is on screen. */
+object CustomApps {
+    private const val PREFS = "busylight_settings"
+    @Volatile var packages: Set<String> = emptySet()
+
+    fun load(ctx: Context) {
+        packages = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getStringSet("customRed", emptySet())?.toSet() ?: emptySet()
+    }
+
+    fun add(ctx: Context, pkg: String) {
+        val updated = packages + pkg
+        packages = updated
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("customRed", updated).apply()
+    }
+
+    fun clear(ctx: Context) {
+        packages = emptySet()
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("customRed").apply()
+    }
 }

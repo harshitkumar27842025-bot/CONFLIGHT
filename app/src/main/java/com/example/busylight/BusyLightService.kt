@@ -43,6 +43,7 @@ class BusyLightService : Service() {
         else startForeground(1, n)
 
         DelaySettings.load(this)
+        CustomApps.load(this)
         if (exec == null) {
             light = UsbLight(this)
             tracker = ForegroundTracker(this)
@@ -71,7 +72,8 @@ class BusyLightService : Service() {
             BusyState.audioPlaying = playing
             val casting = fg != null && fg in Config.CAST_PACKAGES
             BusyState.casting = casting
-            val busy = (fg != null && fg in Config.OFFICE_PACKAGES) || micInUse || playing || casting
+            val learned = fg != null && fg in CustomApps.packages
+            val busy = (fg != null && fg in Config.OFFICE_PACKAGES) || micInUse || playing || casting || learned
             if (busy != BusyState.rawBusy) { BusyState.rawBusy = busy; BusyState.rawSince = now }
 
             val wanted = when (BusyState.mode) {
