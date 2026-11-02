@@ -42,6 +42,7 @@ class BusyLightService : Service() {
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, 1 shl 30) // FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         else startForeground(1, n)
 
+        DelaySettings.load(this)
         if (exec == null) {
             light = UsbLight(this)
             tracker = ForegroundTracker(this)
@@ -80,7 +81,7 @@ class BusyLightService : Service() {
                 wanted == current -> { streak = 0; wanted }
                 else -> {
                     streak++
-                    val need = if (wanted == "red") Config.TO_RED_AFTER else Config.TO_GREEN_AFTER
+                    val need = if (wanted == "red") DelaySettings.toRedSec else DelaySettings.toGreenSec
                     if (streak >= need) wanted else current!!
                 }
             }

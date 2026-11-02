@@ -1,10 +1,10 @@
 package com.example.busylight
 
+import android.content.Context
+
 object Config {
     const val API_PORT = 8765
-    const val POLL_SECONDS = 2L
-    const val TO_RED_AFTER = 2          // polls in a row saying "busy" before going red (~4 s)
-    const val TO_GREEN_AFTER = 4        // polls in a row saying "free" before going green (~8 s)
+    const val POLL_SECONDS = 1L
     const val RESEND_MS = 10_000L       // keep-alive re-send of the same color
 
     /** Light goes RED whenever one of these is in the foreground. */
@@ -48,4 +48,26 @@ object BusyState {
     fun json(): String =
         """{"color":"$color","mode":"$mode","foregroundApp":${foregroundApp?.let { "\"$it\"" } ?: "null"},""" +
         """"inCall":$inCall,"audioPlaying":$audioPlaying,"usbLightConnected":$usbPresent,"usageAccessGranted":$usageAccess}"""
+}
+
+
+/** User-adjustable delays (seconds), saved on the device. The app checks once per second. */
+object DelaySettings {
+    private const val PREFS = "busylight_settings"
+    const val MIN = 1
+    const val MAX = 30
+
+    @Volatile var toRedSec = 2           // green -> red: state must stay "busy" this many seconds
+    @Volatile var toGreenSec = 3         // red -> green: state must stay "free" this many seconds
+
+    fun load(ctx: Context) {
+        val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        toRedSec = p.getInt("toRed", 2).coerceIn(MIN, MAX)
+        toGreenSec = p.getInt("toGreen", 3).coerceIn(MIN, MAX)
+    }
+
+    fun save(ctx: Context) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putInt("toRed", toRedSec).putInt("toGreen", toGreenSec).apply()
+    }
 }

@@ -29,6 +29,7 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 33)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
 
+        DelaySettings.load(this)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(48, 48, 48, 48) }
         status = TextView(this).apply { textSize = 18f }
         root.addView(status)
@@ -49,7 +50,36 @@ class MainActivity : Activity() {
         btn("Force GREEN") { BusyState.mode = "green" }
         btn("Automatic") { BusyState.mode = "auto" }
 
+        root.addView(TextView(this).apply { text = "\nDelays (seconds, 1-30)"; textSize = 18f })
+        stepper(root, "Green -> RED delay", { DelaySettings.toRedSec }) { DelaySettings.toRedSec = it }
+        stepper(root, "Red -> GREEN delay", { DelaySettings.toGreenSec }) { DelaySettings.toGreenSec = it }
+
         setContentView(ScrollView(this).apply { addView(root) })
+    }
+
+    /** A label with [ - ] [ + ] buttons that changes a saved delay value. */
+    private fun stepper(root: LinearLayout, title: String, get: () -> Int, set: (Int) -> Unit) {
+        val label = TextView(this)
+        label.textSize = 18f
+        fun refreshLabel() { label.text = "$title: ${get()} s" }
+        fun change(delta: Int) {
+            set((get() + delta).coerceIn(DelaySettings.MIN, DelaySettings.MAX))
+            DelaySettings.save(this)
+            refreshLabel()
+        }
+        val minus = Button(this)
+        minus.text = "  -  "
+        minus.setOnClickListener { change(-1) }
+        val plus = Button(this)
+        plus.text = "  +  "
+        plus.setOnClickListener { change(1) }
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.addView(minus)
+        row.addView(plus)
+        root.addView(label)
+        root.addView(row)
+        refreshLabel()
     }
 
     override fun onResume() { super.onResume(); ui.post(refresh) }
