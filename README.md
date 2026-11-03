@@ -14,9 +14,9 @@ Otherwise the light is GREEN. Idle apps (open but silent) keep it green.
 ## Get the APK (no Android Studio needed)
 1. Upload all files of this project to a GitHub repository.
 2. Open the repository's "Actions" tab > "Build APK" > "Run workflow".
-3. When it finishes (about 5 minutes), open the run and download the "busylight-apk"
-   artifact (zip). Unzip it to get app-debug.apk.
-4. Copy app-debug.apk to the TV (USB drive) and open it with the TV's file manager.
+3. When it finishes (about 5 minutes), open the run and download the "conflight-apk"
+   artifact (zip). Unzip it to get ConFlight.apk.
+4. Copy ConFlight.apk to the TV (USB drive) and open it with the TV's file manager.
    Allow "install unknown apps" for the file manager when asked.
 (Alternative: open this folder in Android Studio and choose Build > Build APK(s).)
 
