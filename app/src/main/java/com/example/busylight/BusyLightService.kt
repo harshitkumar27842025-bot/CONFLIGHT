@@ -33,9 +33,9 @@ class BusyLightService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val nm = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26)
-            nm.createNotificationChannel(NotificationChannel("busylight", "Busy Light", NotificationManager.IMPORTANCE_LOW))
+            nm.createNotificationChannel(NotificationChannel("busylight", "ConFlight", NotificationManager.IMPORTANCE_LOW))
         val n = Notification.Builder(this, "busylight")
-            .setContentTitle("Busy Light running")
+            .setContentTitle("ConFlight running")
             .setContentText("Port ${Config.API_PORT}")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .build()

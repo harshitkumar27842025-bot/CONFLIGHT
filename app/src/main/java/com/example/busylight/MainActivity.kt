@@ -70,7 +70,7 @@ class MainActivity : Activity() {
                     CustomApps.add(this@MainActivity, pkg)
                     BusyState.learnNote = "Learned: $pkg"
                 } else {
-                    BusyState.learnNote = "Nothing learned (Busy Light itself was on screen, or Usage Access is off). Try again."
+                    BusyState.learnNote = "Nothing learned (ConFlight itself was on screen, or Usage Access is off). Try again."
                 }
             }, 15_000)
         }
