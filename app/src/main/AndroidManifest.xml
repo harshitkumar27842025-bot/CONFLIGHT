@@ -15,7 +15,7 @@
         tools:ignore="ProtectedPermissions" />
 
     <application
-        android:label="Busy Light"
+        android:label="ConFlight"
         android:icon="@drawable/ic_app"
         android:roundIcon="@drawable/ic_app"
         android:banner="@drawable/app_banner"
